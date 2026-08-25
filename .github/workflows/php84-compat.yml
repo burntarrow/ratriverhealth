@@ -41,7 +41,7 @@ jobs:
             echo "WordPress {$wp_version}\n";
           '
 
-      - name: Lint custom PHP
+      - name: Lint site PHP
         shell: bash
         run: |
           status=0
@@ -55,19 +55,19 @@ jobs:
               wp-config.php \
               wp-config.local.example.php \
               wp-content/themes/the-cause \
-              wp-content/plugins/rat_river_widgets \
+              wp-content/plugins \
               -type f -name '*.php' -print0
           )
           exit "$status"
 
-      - name: Scan for removed and deprecated PHP patterns
+      - name: Scan for removed PHP APIs
         shell: bash
         run: |
           set -o pipefail
-          paths=(wp-content/themes/the-cause wp-content/plugins/rat_river_widgets)
+          paths=(wp-content/themes/the-cause wp-content/plugins)
           pattern='create_function[[:space:]]*\(|\beach[[:space:]]*\(|\bsplit[[:space:]]*\(|\bereg(_replace)?[[:space:]]*\(|\bmysql_[a-z_]+[[:space:]]*\(|\bmcrypt_[a-z_]+[[:space:]]*\(|get_magic_quotes_gpc[[:space:]]*\(|\b__autoload[[:space:]]*\('
           if grep -RInE "$pattern" "${paths[@]}"; then
-            echo 'Legacy PHP patterns were found.'
+            echo 'Removed PHP APIs were found.'
             exit 1
           fi
 
@@ -86,7 +86,7 @@ jobs:
             phpcompatibility/php-compatibility \
             phpcompatibility/phpcompatibility-wp
 
-      - name: Run PHPCompatibilityWP
+      - name: Run PHPCompatibilityWP on custom code
         continue-on-error: true
         shell: bash
         run: |
