@@ -1,6 +1,6 @@
 # Rat River Health: PHP 8.4 deployment guide
 
-This repository has been upgraded to a WordPress and custom-code baseline that can be statically checked on PHP 8.4. Complete the following deployment steps on a staging copy before changing the production PHP version.
+This repository has been upgraded to a WordPress and custom-code baseline that can be statically checked on PHP 8.4. Complete the following deployment steps on a staging copy before changing production.
 
 ## 1. Create recoverable backups
 
@@ -31,17 +31,18 @@ Populate `wp-config.local.php` with the new database password and new WordPress 
 
 The same values can instead be supplied as environment variables named `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `AUTH_KEY`, `SECURE_AUTH_KEY`, `LOGGED_IN_KEY`, `NONCE_KEY`, `AUTH_SALT`, `SECURE_AUTH_SALT`, `LOGGED_IN_SALT`, and `NONCE_SALT`.
 
-## 4. Deploy the repository on the existing PHP version
+## 4. Deploy code and PHP together on staging
 
-Deploy the code before changing PHP. Confirm that:
+Do not load this upgraded code while the site is still running PHP 5.6. WordPress 7.1, the updated plugins, and the compatibility configuration target a modern PHP runtime.
 
-- `https://archive.ratriverhealth.ca` loads.
-- Network Admin and individual site dashboards load.
-- English and French pages resolve correctly.
-- Existing widgets remain assigned to their sidebars.
-- Forms, donation links, media, menus, search, and permalinks work.
+On a staging clone:
 
-Do not overwrite `wp-content/uploads` or the production database.
+1. Prevent public traffic or enable a maintenance page that does not bootstrap WordPress.
+2. Deploy the repository and populated `wp-config.local.php` without overwriting `wp-content/uploads` or the database.
+3. Switch the staging site to PHP 8.4 before loading WordPress.
+4. Confirm that the host has the required PHP extensions, including MySQLi, cURL, DOM, EXIF, fileinfo, GD or Imagick, intl, mbstring, OpenSSL, and ZIP where available.
+
+The code deployment and PHP switch should be treated as one cutover. A temporary mixed state—new code on PHP 5.6 or old code on PHP 8.4—is not a supported operating state.
 
 ## 5. Run the WordPress database upgrade
 
@@ -64,15 +65,18 @@ The repository previously contained Slider Revolution 4.5.95. That package has s
 - Verify every page template and shortcode that uses a revolution slider.
 - The existing slider records remain in the database, but make a database backup before allowing the new plugin to migrate them.
 
-## 7. Switch staging to PHP 8.4
+## 7. Complete staging verification
 
-Enable PHP 8.4 on staging, then repeat the functional checks above. Also review the PHP error log while loading:
+Review the PHP error log while checking:
 
+- `https://archive.ratriverhealth.ca` or the staging equivalent;
 - the home page and representative inner pages;
 - English and French versions;
-- Network Admin, Pages, Posts, Media, Widgets, Menus, and plugin screens;
-- search, forms, redirects, scheduled tasks, and logout/login;
-- all sites in the multisite network.
+- Network Admin and individual site dashboards;
+- Pages, Posts, Media, Widgets, Menus, and plugin screens;
+- existing widget assignments and sidebar output;
+- forms, donation links, media, search, redirects, scheduled tasks, permalinks, and logout/login;
+- every site in the multisite network.
 
 Keep `WP_DEBUG_DISPLAY` disabled. Temporarily enable `WP_DEBUG_LOG` only on staging when investigating an error, then remove the generated log.
 
@@ -80,14 +84,14 @@ Keep `WP_DEBUG_DISPLAY` disabled. Temporarily enable `WP_DEBUG_LOG` only on stag
 
 After staging passes:
 
-1. Put the production site into a brief maintenance window.
+1. Put production into a maintenance window that does not load WordPress.
 2. Take a fresh database backup.
-3. Deploy the tested code and local configuration.
-4. Run the network database upgrade.
-5. Switch production to PHP 8.4.
+3. Deploy the tested code and populated local configuration.
+4. Switch production to PHP 8.4 before loading the upgraded WordPress code.
+5. Run the network database upgrade and flush caches.
 6. Complete a focused smoke test and inspect the server error log.
 
-If a fatal error or data migration problem occurs, revert the PHP version, restore the previous code, and restore the database backup if the schema or plugin data changed.
+If a fatal error or data migration problem occurs, restore the previous PHP version and code together. Restore the database backup as well if the WordPress schema or plugin data was changed.
 
 ## Automated compatibility check
 
