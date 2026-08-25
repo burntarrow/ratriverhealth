@@ -1,0 +1,27 @@
+# Local operating-system files
+.DS_Store
+Thumbs.db
+
+# Local WordPress configuration and secrets
+wp-config.local.php
+.env
+.env.*
+!.env.example
+
+# Runtime output
+*.log
+**/error_log
+wp-content/debug.log
+wp-content/cache/
+wp-content/upgrade/
+
+# Database dumps and temporary archives
+*.sql
+*.sql.gz
+*.tar.gz
+*.zip
+
+# Editor files
+.idea/
+.vscode/
+*.swp
