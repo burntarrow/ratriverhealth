@@ -1,5 +1,9 @@
 <?php
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * The core plugin class.
  *
@@ -60,7 +64,6 @@ class Better_Search_Replace {
 		$this->plugin_name 	= 'better-search-replace';
 		$this->version 		= BSR_VERSION;
 		$this->load_dependencies();
-		$this->set_locale();
 		$this->define_admin_hooks();
 	}
 
@@ -75,26 +78,19 @@ class Better_Search_Replace {
 	 */
 	private function load_dependencies() {
 		require_once BSR_PATH . 'includes/class-bsr-loader.php';
-		require_once BSR_PATH . 'includes/class-bsr-i18n.php';
 		require_once BSR_PATH . 'includes/class-bsr-admin.php';
 		require_once BSR_PATH . 'includes/class-bsr-ajax.php';
 		require_once BSR_PATH . 'includes/class-bsr-db.php';
 		require_once BSR_PATH . 'includes/class-bsr-compatibility.php';
-		$this->loader = new BSR_Loader();
-	}
+		require_once BSR_PATH . 'includes/class-bsr-plugin-footer.php';
+		require_once BSR_PATH . 'includes/class-bsr-utils.php';
 
-	/**
-	 * Define the locale for this plugin for internationalization.
-	 *
-	 * Uses the BSR_i18n class in order to set the domain and to register the hook
-	 * with WordPress.
-	 *
-	 * @since    1.0
-	 * @access   private
-	 */
-	private function set_locale() {
-		$plugin_i18n = new BSR_i18n();
-		$plugin_i18n->set_domain( $this->get_plugin_name() );
+		if ( PHP_VERSION_ID < 70000 ) {
+			require_once BSR_PATH . 'vendor/brumann/polyfill-unserialize/src/Unserialize.php';
+			require_once BSR_PATH . 'vendor/brumann/polyfill-unserialize/src/DisallowedClassesSubstitutor.php';
+		}
+		
+		$this->loader = new BSR_Loader();
 	}
 
 	/**
@@ -107,7 +103,8 @@ class Better_Search_Replace {
 	private function define_admin_hooks() {
 
 		// Initialize the admin class.
-		$plugin_admin = new BSR_Admin( $this->get_plugin_name(), $this->get_version() );
+		$plugin_admin  = new BSR_Admin( $this->get_plugin_name(), $this->get_version() );
+		$plugin_footer = new BSR_Plugin_Footer();
 
 		/// Register the admin pages and scripts.
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
@@ -118,6 +115,10 @@ class Better_Search_Replace {
 		$this->loader->add_action( 'admin_post_bsr_view_details', $plugin_admin, 'load_details' );
 		$this->loader->add_action( 'admin_post_bsr_download_sysinfo', $plugin_admin, 'download_sysinfo' );
 		$this->loader->add_action( 'plugin_row_meta', $plugin_admin, 'meta_upgrade_link', 10, 2 );
+
+		// Footer Actions
+		$this->loader->add_filter( 'update_footer', $plugin_footer, 'update_footer', 20);
+		$this->loader->add_filter( 'admin_footer_text', $plugin_footer, 'admin_footer_text', 20);
 	}
 
 	/**
