@@ -1,0 +1,63 @@
+<?php
+
+/*
+	@package WordPress
+	@subpackage The Cause
+
+	Template Name: Photos Template
+
+*/
+
+get_header();
+
+
+?>
+
+<?
+
+if (pll_current_language() == 'en')
+	if ( function_exists( 'soliloquy' ) ) { soliloquy( '1119' ); }
+if (pll_current_language() == 'fr')
+	if ( function_exists( 'soliloquy' ) ) { soliloquy( '1124' ); }
+
+
+
+
+if (have_posts()) : while (have_posts()) : the_post();
+
+?>
+
+<div id="content_wide_blank">
+
+<?php $postID = get_the_ID(); ?>
+
+
+<?php $postThumbnail = tb_get_thumbnail($postID, 'dfl'); ?>
+<?php if ($postThumbnail) { ?>
+
+<?php $imageFull = wp_get_attachment_image_src( get_post_thumbnail_id($postID), 'full'); ?>
+
+<div class="doubleFramed large alignleft">
+	<a href="<?php echo $imageFull[0]; ?>" title="<?php echo $postTitle; ?>">
+	<?php echo $postThumbnail; ?>
+	</a>
+</div>
+<?php } ?>
+
+<?php
+
+the_content();
+
+wp_link_pages();
+
+endwhile; endif;
+
+?>
+
+</div>
+
+<?php
+
+get_footer();
+
+?>
