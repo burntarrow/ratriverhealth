@@ -1,0 +1,59 @@
+name: Fix PHP 8.4 deprecations
+
+on:
+  push:
+    branches:
+      - php-8.4-hardening
+    paths:
+      - .github/workflows/fix-php84-deprecations.yml
+      - tools/fix-php84-deprecations.php
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out hardening branch
+        uses: actions/checkout@v5
+        with:
+          ref: php-8.4-hardening
+          fetch-depth: 1
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Apply targeted deprecation fixes
+        shell: bash
+        run: php tools/fix-php84-deprecations.php
+
+      - name: Verify fixed file
+        shell: bash
+        run: |
+          output=$(php \
+            -d error_reporting=E_ALL \
+            -d display_errors=1 \
+            -l wp-content/themes/the-cause/includes/options/f01_display.php 2>&1)
+          printf '%s\n' "$output"
+          if printf '%s' "$output" | grep -Eq '(Deprecated|Warning|Fatal error|Parse error|Notice):'; then
+            exit 1
+          fi
+
+      - name: Commit deprecation fixes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'Targeted PHP 8.4 fixes are already applied.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add wp-content/themes/the-cause/includes/options/f01_display.php
+          git commit -m 'Fix PHP 8.4 optional parameter deprecation'
+          git push origin HEAD:php-8.4-hardening
