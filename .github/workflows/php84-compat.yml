@@ -1,0 +1,74 @@
+name: PHP 8.4 compatibility
+
+on:
+  push:
+    branches:
+      - php-8.4-compat
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Lint custom PHP
+        shell: bash
+        run: |
+          set -o pipefail
+          find wp-content/themes/the-cause wp-content/plugins/rat_river_widgets \
+            -type f -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Scan for removed and deprecated PHP patterns
+        shell: bash
+        run: |
+          set -o pipefail
+          paths=(wp-content/themes/the-cause wp-content/plugins/rat_river_widgets)
+          pattern='create_function[[:space:]]*\(|\beach[[:space:]]*\(|\bsplit[[:space:]]*\(|\bereg(_replace)?[[:space:]]*\(|\bmysql_[a-z_]+[[:space:]]*\(|\bmcrypt_[a-z_]+[[:space:]]*\(|get_magic_quotes_gpc[[:space:]]*\(|\b__autoload[[:space:]]*\('
+          if grep -RInE "$pattern" "${paths[@]}"; then
+            echo 'Legacy PHP patterns were found.'
+            exit 1
+          fi
+
+      - name: Install PHPCompatibility tooling
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p /tmp/phpcompat
+          cd /tmp/phpcompat
+          composer init --no-interaction --name=ratriverhealth/phpcompat
+          composer config minimum-stability dev
+          composer config prefer-stable true
+          composer require --dev --no-interaction \
+            squizlabs/php_codesniffer \
+            dealerdirect/phpcodesniffer-composer-installer \
+            phpcompatibility/php-compatibility \
+            phpcompatibility/phpcompatibility-wp
+
+      - name: Run PHPCompatibilityWP
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ -x /tmp/phpcompat/vendor/bin/phpcs ]; then
+            /tmp/phpcompat/vendor/bin/phpcs \
+              -p -s \
+              --standard=PHPCompatibilityWP \
+              --runtime-set testVersion 8.4- \
+              --extensions=php \
+              wp-content/themes/the-cause \
+              wp-content/plugins/rat_river_widgets
+          fi
