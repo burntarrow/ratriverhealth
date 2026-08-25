@@ -1,0 +1,177 @@
+name: Finalize PHP 8.4 core update
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - compat/php-8.4
+    paths:
+      - .github/workflows/php-84-core-update-final.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ratriverhealth-php84-core-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Commit modern WordPress core with retry-safe push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start from current remote branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin compat/php-8.4
+          git reset --hard origin/compat/php-8.4
+
+      - name: Replace legacy WordPress core and add audit tooling
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          version_file=$(find . -path '*/wp-includes/version.php' -not -path './.git/*' -print \
+            | awk '{ print length($0), $0 }' | sort -n | head -1 | cut -d' ' -f2-)
+          if [[ -z "${version_file:-}" ]]; then
+            echo 'No WordPress installation was found.' >&2
+            exit 1
+          fi
+          wp_root=$(dirname "$(dirname "$version_file")")
+          old_version=$(awk -F"'" '/^[[:space:]]*\$wp_version[[:space:]]*=/{print $2; exit}' "$version_file")
+          old_version=${old_version:-unknown}
+
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          curl -fsSL --retry 3 --retry-delay 2 https://wordpress.org/latest.tar.gz -o "$tmp/wordpress.tar.gz"
+          tar -xzf "$tmp/wordpress.tar.gz" -C "$tmp"
+          new_version=$(awk -F"'" '/^[[:space:]]*\$wp_version[[:space:]]*=/{print $2; exit}' "$tmp/wordpress/wp-includes/version.php")
+          new_version=${new_version:-unknown}
+
+          rm -rf "$wp_root/wp-admin" "$wp_root/wp-includes"
+          cp -a "$tmp/wordpress/wp-admin" "$wp_root/"
+          cp -a "$tmp/wordpress/wp-includes" "$wp_root/"
+          find "$tmp/wordpress" -maxdepth 1 -type f -print0 | while IFS= read -r -d '' file; do
+            cp -a "$file" "$wp_root/"
+          done
+
+          python3 - "$wp_root" <<'PY'
+          from __future__ import annotations
+          import pathlib
+          import re
+          import sys
+
+          content = pathlib.Path(sys.argv[1]) / 'wp-content'
+          if not content.is_dir():
+              raise SystemExit(0)
+          skipped = {'vendor', 'node_modules', 'uploads', 'cache', 'upgrade', 'languages'}
+          pattern = re.compile(
+              r"(?P<expr>\$[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*(?:->(?:[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*|\{[^{}\r\n]+\})|\[[^\[\]\r\n]+\])*)\{(?P<offset>[^{}\r\n]+)\}"
+          )
+          changed = []
+          for path in content.rglob('*.php'):
+              if any(part in skipped for part in path.parts):
+                  continue
+              try:
+                  source = path.read_text(encoding='utf-8')
+                  encoding = 'utf-8'
+              except UnicodeDecodeError:
+                  source = path.read_text(encoding='latin-1')
+                  encoding = 'latin-1'
+              updated, count = pattern.subn(
+                  lambda match: f"{match.group('expr')}[{match.group('offset')}]",
+                  source,
+              )
+              if count and updated != source:
+                  path.write_text(updated, encoding=encoding)
+                  changed.append(f'{path}: {count}')
+          pathlib.Path('PHP84-CURLY-OFFSET-FIXES.txt').write_text(
+              '\n'.join(changed) + ('\n' if changed else 'No simple curly-brace offsets were found.\n'),
+              encoding='utf-8',
+          )
+          PY
+
+          mkdir -p tools
+          cat > tools/php84-audit.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+          cd "$root"
+          php_bin=${PHP_BIN:-php}
+          report_dir=${REPORT_DIR:-build/php84}
+          mkdir -p "$report_dir"
+          "$php_bin" -v | tee "$report_dir/php-version.txt"
+          set -o pipefail
+          find . -type f -name '*.php' \
+            -not -path './.git/*' \
+            -not -path '*/node_modules/*' \
+            -not -path '*/vendor/*' \
+            -not -path '*/uploads/*' \
+            -not -path '*/cache/*' \
+            -print0 \
+            | xargs -0 -n1 -P4 "$php_bin" -l \
+            | tee "$report_dir/php-lint.txt"
+          legacy='\b(mysql_[a-z_]+|ereg(i)?|split|spliti|create_function|each|get_magic_quotes_gpc|set_magic_quotes_runtime)\s*\('
+          if command -v rg >/dev/null 2>&1; then
+            rg -n --glob '*.php' --glob '!vendor/**' --glob '!node_modules/**' \
+              --glob '!uploads/**' --glob '!cache/**' "$legacy" . \
+              > "$report_dir/legacy-api-hits.txt" || true
+          else
+            grep -REn --include='*.php' --exclude-dir=.git --exclude-dir=vendor \
+              --exclude-dir=node_modules --exclude-dir=uploads --exclude-dir=cache \
+              "$legacy" . > "$report_dir/legacy-api-hits.txt" || true
+          fi
+          printf 'Reports written to %s\n' "$report_dir"
+          BASH
+          chmod +x tools/php84-audit.sh
+
+          cat > PHP84-CORE-UPDATE-COMPLETE.md <<EOF
+          # PHP 8.4 core-update result
+
+          - WordPress root: `${wp_root}`
+          - Previous WordPress version encountered by this job: `${old_version}`
+          - Installed WordPress version: `${new_version}`
+          - Completed: `$(date -u +%Y-%m-%dT%H:%M:%SZ)`
+
+          The `wp-content` directory, `wp-config.php`, uploads, and site-specific files were preserved. Review the PHP 8.4 validation workflow before deploying this branch.
+          EOF
+
+          cat > PHP84-AUDIT.md <<EOF
+          # Rat River Health PHP 8.4 audit
+
+          The legacy WordPress core has been replaced with WordPress `${new_version}`. GitHub Actions now performs PHP 8.4 syntax linting and a PHPCompatibilityWP scan of themes, plugins, and must-use plugins.
+
+          A successful static scan is not a substitute for staging validation with the site's database and multisite configuration.
+          EOF
+
+          if ! grep -Fqx '/build/php84/' .gitignore 2>/dev/null; then
+            printf '\n# PHP compatibility audit output\n/build/php84/\n' >> .gitignore
+          fi
+
+      - name: Commit and push with conflict retry
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'The branch already contains the requested core update.'
+            exit 0
+          fi
+          git commit -m 'Finalize WordPress core update for PHP 8.4'
+          for attempt in 1 2 3 4; do
+            if git push origin HEAD:compat/php-8.4; then
+              exit 0
+            fi
+            git pull --rebase origin compat/php-8.4
+            sleep $((attempt * 4))
+          done
+          echo 'Unable to push the core update after four attempts.' >&2
+          exit 1

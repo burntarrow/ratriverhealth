@@ -1,0 +1,287 @@
+name: Bootstrap PHP 8.4 modernization
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - compat/php-8.4
+    paths:
+      - .github/workflows/php-84-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  modernize:
+    name: Update WordPress core and add compatibility checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out compatibility branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Locate the WordPress installation
+        id: wordpress
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          version_file=$(find . -path '*/wp-includes/version.php' -not -path './.git/*' -print \
+            | awk '{ print length($0), $0 }' | sort -n | head -1 | cut -d' ' -f2-)
+          if [[ -z "${version_file:-}" ]]; then
+            echo 'No WordPress installation was found.' >&2
+            exit 1
+          fi
+          root=$(dirname "$(dirname "$version_file")")
+          old_version=$(sed -n "s/^[[:space:]]*\\$wp_version[[:space:]]*=[[:space:]]*'\([^']*\)'.*/\1/p" "$version_file" | head -1)
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+          echo "old_version=${old_version:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Replace legacy WordPress core
+        id: core
+        shell: bash
+        env:
+          WP_ROOT: ${{ steps.wordpress.outputs.root }}
+        run: |
+          set -Eeuo pipefail
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          curl -fsSL --retry 3 --retry-delay 2 https://wordpress.org/latest.tar.gz -o "$tmp/wordpress.tar.gz"
+          tar -xzf "$tmp/wordpress.tar.gz" -C "$tmp"
+          new_version=$(sed -n "s/^[[:space:]]*\\$wp_version[[:space:]]*=[[:space:]]*'\([^']*\)'.*/\1/p" "$tmp/wordpress/wp-includes/version.php" | head -1)
+          rm -rf "$WP_ROOT/wp-admin" "$WP_ROOT/wp-includes"
+          cp -a "$tmp/wordpress/wp-admin" "$WP_ROOT/"
+          cp -a "$tmp/wordpress/wp-includes" "$WP_ROOT/"
+          find "$tmp/wordpress" -maxdepth 1 -type f -print0 | while IFS= read -r -d '' file; do
+            cp -a "$file" "$WP_ROOT/"
+          done
+          echo "new_version=${new_version:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Convert removed curly-brace offsets in custom PHP
+        shell: bash
+        env:
+          WP_ROOT: ${{ steps.wordpress.outputs.root }}
+        run: |
+          python3 - "$WP_ROOT" <<'PY'
+          from __future__ import annotations
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path(sys.argv[1]) / 'wp-content'
+          if not root.is_dir():
+              raise SystemExit(0)
+
+          skipped = {'vendor', 'node_modules', 'uploads', 'cache', 'upgrade', 'languages'}
+          pattern = re.compile(
+              r"(?P<expr>\$[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*(?:->(?:[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*|\{[^{}\r\n]+\})|\[[^\[\]\r\n]+\])*)\{(?P<offset>[^{}\r\n]+)\}"
+          )
+          changed = []
+          for path in root.rglob('*.php'):
+              if any(part in skipped for part in path.parts):
+                  continue
+              try:
+                  source = path.read_text(encoding='utf-8')
+                  encoding = 'utf-8'
+              except UnicodeDecodeError:
+                  source = path.read_text(encoding='latin-1')
+                  encoding = 'latin-1'
+              updated, count = pattern.subn(
+                  lambda match: f"{match.group('expr')}[{match.group('offset')}]",
+                  source,
+              )
+              if count and updated != source:
+                  path.write_text(updated, encoding=encoding)
+                  changed.append(f'{path}: {count}')
+
+          pathlib.Path('PHP84-CURLY-OFFSET-FIXES.txt').write_text(
+              '\n'.join(changed) + ('\n' if changed else 'No simple curly-brace offsets were found.\n'),
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Add repeatable PHP 8.4 checks
+        shell: bash
+        env:
+          OLD_VERSION: ${{ steps.wordpress.outputs.old_version }}
+          NEW_VERSION: ${{ steps.core.outputs.new_version }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p .github/workflows tools
+
+          cat > .github/workflows/php-84-compatibility.yml <<'YAML'
+          name: PHP 8.4 compatibility
+
+          on:
+            pull_request:
+            workflow_dispatch:
+            push:
+              branches:
+                - compat/php-8.4
+
+          permissions:
+            contents: read
+
+          jobs:
+            syntax-lint:
+              name: PHP 8.4 syntax lint
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - name: Set up PHP 8.4
+                  uses: shivammathur/setup-php@v2
+                  with:
+                    php-version: '8.4'
+                    coverage: none
+                - name: Lint all tracked PHP files
+                  shell: bash
+                  run: |
+                    set -o pipefail
+                    find . -type f -name '*.php' \
+                      -not -path './.git/*' \
+                      -not -path '*/node_modules/*' \
+                      -not -path '*/vendor/*' \
+                      -not -path '*/uploads/*' \
+                      -not -path '*/cache/*' \
+                      -print0 \
+                      | xargs -0 -n1 -P4 php -l \
+                      | tee php84-lint.txt
+                - name: Upload lint report
+                  if: always()
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: php84-lint-report
+                    path: php84-lint.txt
+                    if-no-files-found: ignore
+
+            compatibility-scan:
+              name: Theme and plugin compatibility scan
+              runs-on: ubuntu-latest
+              continue-on-error: true
+              steps:
+                - uses: actions/checkout@v4
+                - name: Set up PHP 8.4
+                  uses: shivammathur/setup-php@v2
+                  with:
+                    php-version: '8.4'
+                    tools: composer
+                    coverage: none
+                - name: Install PHPCompatibilityWP
+                  shell: bash
+                  run: |
+                    mkdir -p "$RUNNER_TEMP/phpcompat"
+                    cd "$RUNNER_TEMP/phpcompat"
+                    composer init --no-interaction --name=rat-river-health/php84-audit
+                    composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+                    composer require --dev --no-interaction --prefer-dist \
+                      phpcompatibility/phpcompatibility-wp \
+                      squizlabs/php_codesniffer
+                - name: Scan custom and third-party site code
+                  shell: bash
+                  run: |
+                    set +e
+                    phpcs="$RUNNER_TEMP/phpcompat/vendor/bin/phpcs"
+                    targets=()
+                    [[ -d wp-content/themes ]] && targets+=(wp-content/themes)
+                    [[ -d wp-content/plugins ]] && targets+=(wp-content/plugins)
+                    [[ -d wp-content/mu-plugins ]] && targets+=(wp-content/mu-plugins)
+                    if [[ ${#targets[@]} -eq 0 ]]; then
+                      echo 'No theme or plugin directories found.' > php84-compatibility.txt
+                      exit 0
+                    fi
+                    "$phpcs" \
+                      --standard=PHPCompatibilityWP \
+                      --runtime-set testVersion 8.4- \
+                      --extensions=php \
+                      --ignore='*/vendor/*,*/node_modules/*,*/uploads/*,*/cache/*' \
+                      --report=full \
+                      "${targets[@]}" \
+                      > php84-compatibility.txt 2>&1
+                    status=$?
+                    cat php84-compatibility.txt
+                    exit "$status"
+                - name: Upload compatibility report
+                  if: always()
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: php84-compatibility-report
+                    path: php84-compatibility.txt
+                    if-no-files-found: ignore
+          YAML
+
+          cat > tools/php84-audit.sh <<'BASH'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+          cd "$root"
+          php_bin=${PHP_BIN:-php}
+          report_dir=${REPORT_DIR:-build/php84}
+          mkdir -p "$report_dir"
+          "$php_bin" -v | tee "$report_dir/php-version.txt"
+          set -o pipefail
+          find . -type f -name '*.php' \
+            -not -path './.git/*' \
+            -not -path '*/node_modules/*' \
+            -not -path '*/vendor/*' \
+            -not -path '*/uploads/*' \
+            -not -path '*/cache/*' \
+            -print0 \
+            | xargs -0 -n1 -P4 "$php_bin" -l \
+            | tee "$report_dir/php-lint.txt"
+          legacy='\b(mysql_[a-z_]+|ereg(i)?|split|spliti|create_function|each|get_magic_quotes_gpc|set_magic_quotes_runtime)\s*\('
+          if command -v rg >/dev/null 2>&1; then
+            rg -n --glob '*.php' --glob '!vendor/**' --glob '!node_modules/**' \
+              --glob '!uploads/**' --glob '!cache/**' "$legacy" . \
+              > "$report_dir/legacy-api-hits.txt" || true
+          else
+            grep -REn --include='*.php' --exclude-dir=.git --exclude-dir=vendor \
+              --exclude-dir=node_modules --exclude-dir=uploads --exclude-dir=cache \
+              "$legacy" . > "$report_dir/legacy-api-hits.txt" || true
+          fi
+          printf 'Reports written to %s\n' "$report_dir"
+          BASH
+          chmod +x tools/php84-audit.sh
+
+          cat > PHP84-MIGRATION.md <<EOF
+          # PHP 8.4 compatibility migration
+
+          This branch updates the archived Rat River Health WordPress application from WordPress **${OLD_VERSION}** to the current stable WordPress release available at migration time, **${NEW_VERSION}**.
+
+          ## What changed
+
+          - Replaced WordPress core while preserving `wp-content`, `wp-config.php`, uploads, and site-specific files.
+          - Added a PHP 8.4 syntax-lint workflow.
+          - Added a PHPCompatibilityWP scan for themes, plugins, and must-use plugins.
+          - Converted straightforward custom-code curly-brace offsets, syntax removed in PHP 8.0, to bracket offsets.
+          - Added `tools/php84-audit.sh` for repeatable local checks.
+
+          ## Required staging procedure
+
+          1. Back up the database and all files.
+          2. Deploy this branch to a staging copy, not directly to production.
+          3. Enable PHP 8.4 with MySQLi, mbstring, cURL, DOM, XML, ZIP, GD or Imagick, and Intl.
+          4. Visit `/wp-admin/upgrade.php` once as an administrator to run the WordPress database upgrade.
+          5. Review the compatibility workflow artifact and update or replace every flagged theme or plugin.
+          6. Test multisite login, media, forms, search, menus, scheduled tasks, and every public template.
+
+          A successful code scan cannot validate database content, server configuration, external integrations, or browser-level behaviour. Keep the existing archive available until staging acceptance is complete.
+          EOF
+
+          if ! grep -Fqx '/build/php84/' .gitignore 2>/dev/null; then
+            printf '\n# PHP compatibility audit output\n/build/php84/\n' >> .gitignore
+          fi
+
+      - name: Commit modernization to the compatibility branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No modernization changes were generated.'
+            exit 0
+          fi
+          git commit -m 'Modernize WordPress for PHP 8.4 compatibility'
+          git push origin HEAD:compat/php-8.4

@@ -25,3 +25,6 @@ wp-content/upgrade/
 .idea/
 .vscode/
 *.swp
+
+# PHP compatibility audit output
+/build/php84/
