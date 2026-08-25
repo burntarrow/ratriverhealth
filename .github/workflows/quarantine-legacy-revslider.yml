@@ -1,0 +1,54 @@
+name: Quarantine legacy Slider Revolution
+
+on:
+  push:
+    branches:
+      - php-8.4-compat
+    paths:
+      - .github/workflows/quarantine-legacy-revslider.yml
+      - tools/quarantine-legacy-revslider.sh
+
+permissions:
+  contents: write
+
+jobs:
+  quarantine:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out compatibility branch
+        uses: actions/checkout@v5
+        with:
+          ref: php-8.4-compat
+          fetch-depth: 1
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Replace incompatible Slider Revolution package
+        shell: bash
+        run: bash tools/quarantine-legacy-revslider.sh
+
+      - name: Verify compatibility guard
+        shell: bash
+        run: |
+          test -f wp-content/plugins/revslider/revslider.php
+          test "$(find wp-content/plugins/revslider -type f | wc -l | tr -d ' ')" = '1'
+          php -l wp-content/plugins/revslider/revslider.php
+
+      - name: Commit compatibility guard
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'Slider Revolution is already quarantined.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A wp-content/plugins/revslider
+          git commit -m 'Quarantine incompatible Slider Revolution 4.5.95'
+          git push origin HEAD:php-8.4-compat
