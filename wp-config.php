@@ -1,112 +1,133 @@
 <?php
 /**
- * The base configurations of the WordPress.
+ * Rat River Health WordPress bootstrap configuration.
  *
- * This file has the following configurations: MySQL settings, Table Prefix,
- * Secret Keys, WordPress Language, and ABSPATH. You can find more information
- * by visiting {@link http://codex.wordpress.org/Editing_wp-config.php Editing
- * wp-config.php} Codex page. You can get the MySQL settings from your web host.
- *
- * This file is used by the wp-config.php creation script during the
- * installation. You don't have to use the web site, you can just copy this file
- * to "wp-config.php" and fill in the values.
- *
- * @package WordPress
+ * Secrets are intentionally loaded from an ignored local file or environment
+ * variables. Copy wp-config.local.example.php to wp-config.local.php on the
+ * server and populate it before deploying this branch.
  */
- 
-/**define(‘WP_TEMP_DIR’, ABSPATH . ‘wp-content/’);** //
 
-// ** MySQL settings - You can get this info from your web host ** //
-/** The name of the database for WordPress */
-define('DB_NAME', 'ratriverhealth_website');
-
-/** MySQL database username */
-define('DB_USER', 'ratriverhealth_archive-user');
-
-/** MySQL database password */
-define('DB_PASSWORD', 'wzF=*r51zMDM6m,3');
-
-/** MySQL hostname */
-define('DB_HOST', 'localhost');
-
-/** Database Charset to use in creating database tables. */
-define('DB_CHARSET', 'utf8');
-
-/** The Database Collate type. Don't change this if in doubt. */
-define('DB_COLLATE', '');
-
-/**#@+
- * Authentication Unique Keys and Salts.
- *
- * Change these to different unique phrases!
- * You can generate these using the {@link https://api.wordpress.org/secret-key/1.1/salt/ WordPress.org secret-key service}
- * You can change these at any point in time to invalidate all existing cookies. This will force all users to have to log in again.
- *
- * @since 2.6.0
- */
-define('AUTH_KEY',         'Lar??|fX0Ya[H}`efKmmy=O03*q-]6{g|>y3(Xj7|.KTFPdMWB?F~i0`0zP<+z<(');
-define('SECURE_AUTH_KEY',  ',Z|,TlEV+Jx^IYhJRst1L!K>}2yiY;y(I>lGYME1fZR7@];+Q).#6@iB,^Z9w!1S');
-define('LOGGED_IN_KEY',    'w{@=$M+[4~1at~%7%qS@EH0aTa~rMtw+4l4fj+yoR3xlg.!WM4oM(~YvGqFd_y6%');
-define('NONCE_KEY',        'V1mwY`7-?Mzf1yK|WGmZHK4S$=;+aHA*0~IY0Og/PXjTvgI^rNRkQ#I7+0-I9iIO');
-define('AUTH_SALT',        ' jO/,A+e@%xlM^XY3j-B-<UeW=Se= c-qORzb^ qXv2`.>/I)d=hop(@3@?ucFb;');
-define('SECURE_AUTH_SALT', '{?UN)^]iEc<Ega]bdC|:O_.?6KjafyT3y4!rjYi{Z-u^J<yMimelYw-Y%2ZxP?V(');
-define('LOGGED_IN_SALT',   '-tCXOn#HNQ{AaiX|{o]y*&-8>4XbUu;#cl^+ DNk7t7s3`CZ/f6I|0/$9@ft{0v_');
-define('NONCE_SALT',       'N{9eq?Jq+l[9$|% jJ2ThPJ*iDN~>XN!iZllv>28}Q1|2[X}P3l3%^cf+N+hu;X!');
-
-/**#@-*/
+$rrh_local_config = __DIR__ . '/wp-config.local.php';
+if (is_readable($rrh_local_config)) {
+    require $rrh_local_config;
+}
 
 /**
- * WordPress Database Table prefix.
+ * Define a configuration constant from an environment variable when it has not
+ * already been supplied by wp-config.local.php.
  *
- * You can have multiple installations in one database if you give each a unique
- * prefix. Only numbers, letters, and underscores please!
+ * @param string $name    Constant/environment variable name.
+ * @param mixed  $default Fallback value.
  */
-$table_prefix  = 'wp_';
+function rrh_define_config(string $name, $default = ''): void
+{
+    if (defined($name)) {
+        return;
+    }
 
-/**
- * WordPress Localized Language, defaults to English.
- *
- * Change this to localize WordPress. A corresponding MO file for the chosen
- * language must be installed to wp-content/languages. For example, install
- * de_DE.mo to wp-content/languages and set WPLANG to 'de_DE' to enable German
- * language support.
- */
-define('WPLANG', '');
+    $value = getenv($name);
+    define($name, false !== $value && '' !== $value ? $value : $default);
+}
 
-/**
- * For developers: WordPress debugging mode.
- *
- * Change this to true to enable the display of notices during development.
- * It is strongly recommended that plugin and theme developers use WP_DEBUG
- * in their development environments.
- */
- 
-define('WP_HOME','https://archive.ratriverhealth.ca');
-define('WP_SITEURL','https://archive.ratriverhealth.ca');
+rrh_define_config('DB_NAME');
+rrh_define_config('DB_USER');
+rrh_define_config('DB_PASSWORD');
+rrh_define_config('DB_HOST', 'localhost');
+rrh_define_config('DB_CHARSET', 'utf8mb4');
+rrh_define_config('DB_COLLATE', '');
 
+$rrh_secret_constants = array(
+    'AUTH_KEY',
+    'SECURE_AUTH_KEY',
+    'LOGGED_IN_KEY',
+    'NONCE_KEY',
+    'AUTH_SALT',
+    'SECURE_AUTH_SALT',
+    'LOGGED_IN_SALT',
+    'NONCE_SALT',
+);
 
-define( 'WP_DEBUG', true );
-define( 'WP_DEBUG_LOG', true );
-define( 'WP_DEBUG_DISPLAY', true );
+foreach ($rrh_secret_constants as $rrh_secret_constant) {
+    rrh_define_config($rrh_secret_constant);
+}
 
-define ('WP_MEMORY_LIMIT', '1024M');
+$rrh_missing_configuration = array();
+foreach (array_merge(array('DB_NAME', 'DB_USER', 'DB_PASSWORD'), $rrh_secret_constants) as $rrh_required_constant) {
+    if ('' === (string) constant($rrh_required_constant)) {
+        $rrh_missing_configuration[] = $rrh_required_constant;
+    }
+}
 
-/* Multisite */
-define( 'WP_ALLOW_MULTISITE', true );
+if ($rrh_missing_configuration) {
+    $rrh_message = 'Rat River Health configuration is incomplete. Copy wp-config.local.example.php to wp-config.local.php and populate the required values.';
 
-define('MULTISITE', true);
-define('SUBDOMAIN_INSTALL', false);
-define('DOMAIN_CURRENT_SITE', 'archive.ratriverhealth.ca');
-define('PATH_CURRENT_SITE', '/');
-define('SITE_ID_CURRENT_SITE', 1);
-define('BLOG_ID_CURRENT_SITE', 1);
+    if ('cli' === PHP_SAPI) {
+        throw new RuntimeException($rrh_message);
+    }
 
+    http_response_code(503);
+    exit($rrh_message);
+}
 
-/* That's all, stop editing! Happy blogging. */
+unset(
+    $rrh_local_config,
+    $rrh_secret_constants,
+    $rrh_secret_constant,
+    $rrh_missing_configuration,
+    $rrh_required_constant,
+    $rrh_message
+);
 
-/** Absolute path to the WordPress directory. */
-if ( !defined('ABSPATH') )
-	define('ABSPATH', dirname(__FILE__) . '/');
+$table_prefix = 'wp_';
 
-/** Sets up WordPress vars and included files. */
-require_once(ABSPATH . 'wp-settings.php');
+rrh_define_config('WP_ENVIRONMENT_TYPE', 'production');
+
+if (!defined('WP_HOME')) {
+    define('WP_HOME', 'https://archive.ratriverhealth.ca');
+}
+if (!defined('WP_SITEURL')) {
+    define('WP_SITEURL', 'https://archive.ratriverhealth.ca');
+}
+
+if (!defined('WP_DEBUG')) {
+    define('WP_DEBUG', 'production' !== WP_ENVIRONMENT_TYPE);
+}
+if (!defined('WP_DEBUG_LOG')) {
+    define('WP_DEBUG_LOG', WP_DEBUG);
+}
+if (!defined('WP_DEBUG_DISPLAY')) {
+    define('WP_DEBUG_DISPLAY', false);
+}
+@ini_set('display_errors', WP_DEBUG_DISPLAY ? '1' : '0');
+
+if (!defined('WP_MEMORY_LIMIT')) {
+    define('WP_MEMORY_LIMIT', '1024M');
+}
+
+if (!defined('WP_ALLOW_MULTISITE')) {
+    define('WP_ALLOW_MULTISITE', true);
+}
+if (!defined('MULTISITE')) {
+    define('MULTISITE', true);
+}
+if (!defined('SUBDOMAIN_INSTALL')) {
+    define('SUBDOMAIN_INSTALL', false);
+}
+if (!defined('DOMAIN_CURRENT_SITE')) {
+    define('DOMAIN_CURRENT_SITE', 'archive.ratriverhealth.ca');
+}
+if (!defined('PATH_CURRENT_SITE')) {
+    define('PATH_CURRENT_SITE', '/');
+}
+if (!defined('SITE_ID_CURRENT_SITE')) {
+    define('SITE_ID_CURRENT_SITE', 1);
+}
+if (!defined('BLOG_ID_CURRENT_SITE')) {
+    define('BLOG_ID_CURRENT_SITE', 1);
+}
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__ . '/');
+}
+
+require_once ABSPATH . 'wp-settings.php';
