@@ -1,0 +1,97 @@
+name: PHP 8.4 validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - compat/php-8.4
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-lint:
+    name: PHP 8.4 syntax lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Lint all tracked PHP files
+        shell: bash
+        run: |
+          set -o pipefail
+          find . -type f -name '*.php' \
+            -not -path './.git/*' \
+            -not -path '*/node_modules/*' \
+            -not -path '*/vendor/*' \
+            -not -path '*/uploads/*' \
+            -not -path '*/cache/*' \
+            -print0 \
+            | xargs -0 -n1 -P4 php -l \
+            | tee php84-lint.txt
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: php84-lint-report
+          path: php84-lint.txt
+          if-no-files-found: ignore
+
+  compatibility-scan:
+    name: Theme and plugin compatibility scan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - name: Install PHPCompatibilityWP
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/phpcompat"
+          cd "$RUNNER_TEMP/phpcompat"
+          composer init --no-interaction --name=rat-river-health/php84-audit
+          composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer require --dev --no-interaction --prefer-dist \
+            phpcompatibility/phpcompatibility-wp \
+            squizlabs/php_codesniffer
+      - name: Scan themes, plugins, and must-use plugins
+        shell: bash
+        run: |
+          set +e
+          phpcs="$RUNNER_TEMP/phpcompat/vendor/bin/phpcs"
+          targets=()
+          [[ -d wp-content/themes ]] && targets+=(wp-content/themes)
+          [[ -d wp-content/plugins ]] && targets+=(wp-content/plugins)
+          [[ -d wp-content/mu-plugins ]] && targets+=(wp-content/mu-plugins)
+          if [[ ${#targets[@]} -eq 0 ]]; then
+            echo 'No theme or plugin directories found.' > php84-compatibility.txt
+            exit 0
+          fi
+          "$phpcs" \
+            --standard=PHPCompatibilityWP \
+            --runtime-set testVersion 8.4- \
+            --extensions=php \
+            --ignore='*/vendor/*,*/node_modules/*,*/uploads/*,*/cache/*' \
+            --report=full \
+            "${targets[@]}" \
+            > php84-compatibility.txt 2>&1
+          status=$?
+          cat php84-compatibility.txt
+          exit "$status"
+      - name: Upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: php84-compatibility-report
+          path: php84-compatibility.txt
+          if-no-files-found: ignore
