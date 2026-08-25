@@ -16,11 +16,11 @@
         
     
     
-        <? if (pll_current_language() == 'en') { ?>
+        <?php  if (pll_current_language() == 'en') { ?>
             <h3>Latest Videos</h3>
-        <? } else { ?>
+        <?php  } else { ?>
             <h3>Vid&eacute;os r&eacute;centes</h3>
-        <? } ?>
+        <?php  } ?>
 	
 	<div id="homeVideo"><div class="slides_container">
 	

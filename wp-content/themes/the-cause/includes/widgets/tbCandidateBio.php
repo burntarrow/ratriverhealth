@@ -3,9 +3,9 @@
 // TB_Candidate_Bio: data provided through theme options
 class TB_Candidate_Bio extends WP_Widget {
 	
-	function TB_Candidate_Bio() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_about_us', 'description' => __( 'Candidate Biography - Sidebar only', 'the-cause') );		
-		$this->WP_Widget('TB_Candidate_Bio', __('TB Candidate Bio', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Candidate_Bio', __('TB Candidate Bio', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -84,11 +84,10 @@ class TB_Candidate_Bio extends WP_Widget {
 
 function tb_register_candidate_bio() {
 	
-	register_widget('TB_Candidate_Bio');
-	
-	do_action('widgets_init');
+	register_widget(TB_Candidate_Bio::class);
+
 }
 
-add_action('init', 'tb_register_candidate_bio', 1);
+add_action('widgets_init', 'tb_register_candidate_bio', 1);
 
 ?>

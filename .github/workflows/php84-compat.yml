@@ -1,0 +1,101 @@
+name: PHP 8.4 compatibility
+
+on:
+  push:
+    branches:
+      - php-8.4-compat
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php84-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Verify WordPress core supports PHP 8.4
+        shell: bash
+        run: |
+          php -r '
+            require "wp-includes/version.php";
+            if (version_compare($wp_version, "6.7", "<")) {
+                fwrite(STDERR, "WordPress {$wp_version} is too old for supported PHP 8.4 operation.\n");
+                exit(1);
+            }
+            echo "WordPress {$wp_version}\n";
+          '
+
+      - name: Lint site PHP
+        shell: bash
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            if ! output=$(php -l "$file" 2>&1); then
+              printf '%s\n' "$output"
+              status=1
+            fi
+          done < <(
+            find \
+              wp-config.php \
+              wp-config.local.example.php \
+              wp-content/themes/the-cause \
+              wp-content/plugins \
+              -type f -name '*.php' -print0
+          )
+          exit "$status"
+
+      - name: Scan for removed PHP APIs
+        shell: bash
+        run: |
+          set -o pipefail
+          paths=(wp-content/themes/the-cause wp-content/plugins)
+          pattern='create_function[[:space:]]*\(|\beach[[:space:]]*\(|\bsplit[[:space:]]*\(|\bereg(_replace)?[[:space:]]*\(|\bmysql_[a-z_]+[[:space:]]*\(|\bmcrypt_[a-z_]+[[:space:]]*\(|get_magic_quotes_gpc[[:space:]]*\(|\b__autoload[[:space:]]*\('
+          if grep -RInE "$pattern" "${paths[@]}"; then
+            echo 'Removed PHP APIs were found.'
+            exit 1
+          fi
+
+      - name: Install PHPCompatibility tooling
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p /tmp/phpcompat
+          cd /tmp/phpcompat
+          composer init --no-interaction --name=ratriverhealth/phpcompat
+          composer config minimum-stability dev
+          composer config prefer-stable true
+          composer require --dev --no-interaction \
+            squizlabs/php_codesniffer \
+            dealerdirect/phpcodesniffer-composer-installer \
+            phpcompatibility/php-compatibility \
+            phpcompatibility/phpcompatibility-wp
+
+      - name: Run PHPCompatibilityWP on custom code
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ -x /tmp/phpcompat/vendor/bin/phpcs ]; then
+            /tmp/phpcompat/vendor/bin/phpcs \
+              -p -s \
+              --standard=PHPCompatibilityWP \
+              --runtime-set testVersion 8.4- \
+              --extensions=php \
+              wp-content/themes/the-cause \
+              wp-content/plugins/rat_river_widgets
+          fi

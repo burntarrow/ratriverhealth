@@ -3,9 +3,9 @@
 // get flickr images
 class TB_Flickr extends WP_Widget {
 	
-	function TB_Flickr() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_flickr',	'description' => __( 'Displays images from your Flickr account.', 'the-cause') );
-		$this->WP_Widget('TB_Flickr', __('TB Flickr', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Flickr', __('TB Flickr', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -100,11 +100,10 @@ class TB_Flickr extends WP_Widget {
 
 function tb_register_flickr() {
 
-	register_widget('TB_Flickr');
-	
-	do_action('widgets_init');
+	register_widget(TB_Flickr::class);
+
 }
 
-add_action('init', 'tb_register_flickr', 1);
+add_action('widgets_init', 'tb_register_flickr', 1);
 
 ?>

@@ -1,0 +1,74 @@
+name: Modernize PHP short tags
+
+on:
+  push:
+    branches:
+      - php-8.4-compat
+    paths:
+      - .github/workflows/modernize-short-tags.yml
+      - tools/modernize-short-tags.php
+
+permissions:
+  contents: write
+
+jobs:
+  modernize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out compatibility branch
+        uses: actions/checkout@v5
+        with:
+          ref: php-8.4-compat
+          fetch-depth: 1
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Replace legacy short open tags
+        shell: bash
+        run: php tools/modernize-short-tags.php
+
+      - name: Verify no short tags remain
+        shell: bash
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            if grep -nP '<\?(?!php\b|=|xml\b)' "$file"; then
+              echo "Legacy short tag remains in $file"
+              status=1
+            fi
+          done < <(
+            find wp-content/themes/the-cause wp-content/plugins/rat_river_widgets \
+              -type f -name '*.php' -print0
+          )
+          exit "$status"
+
+      - name: Lint updated custom PHP
+        shell: bash
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            php -l "$file" || status=1
+          done < <(
+            find wp-content/themes/the-cause wp-content/plugins/rat_river_widgets \
+              -type f -name '*.php' -print0
+          )
+          exit "$status"
+
+      - name: Commit short-tag fixes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No legacy short tags remain.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add wp-content/themes/the-cause wp-content/plugins/rat_river_widgets
+          git commit -m 'Replace legacy PHP short tags for PHP 8.4'
+          git push origin HEAD:php-8.4-compat

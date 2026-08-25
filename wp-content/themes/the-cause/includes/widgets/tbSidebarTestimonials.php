@@ -2,9 +2,9 @@
 
 class TB_Sidebar_Testimonials extends WP_Widget {
 	
-	function TB_Sidebar_Testimonials() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_sidebar_testimonials', 'description' => __( 'Displays testimonials.', 'the-cause') );
-		$this->WP_Widget('TB_Sidebar_Testimonials', __('TB Sidebar Testimonials', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Sidebar_Testimonials', __('TB Sidebar Testimonials', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -84,11 +84,10 @@ class TB_Sidebar_Testimonials extends WP_Widget {
 
 function tb_register_sidebar_testimonials() {
 
-	register_widget('TB_Sidebar_Testimonials');
-	
-	do_action('widgets_init');
+	register_widget(TB_Sidebar_Testimonials::class);
+
 }
 
-add_action('init', 'tb_register_sidebar_testimonials', 1);
+add_action('widgets_init', 'tb_register_sidebar_testimonials', 1);
 
 ?>

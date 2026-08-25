@@ -70,7 +70,7 @@
                 ?>
                 </div>
                 
-                <? require_once('lang_switch.php'); ?>
+                <?php  require_once('lang_switch.php'); ?>
 		
         </div>
 		
@@ -100,11 +100,11 @@
         <!-- Slider -->
         <div id="parallaxRevolutionFull"><div>
 		
-            <? if (pll_current_language() == 'en') { ?>
+            <?php  if (pll_current_language() == 'en') { ?>
                 <?php putRevSlider("full") ?>
-            <? } else { ?>
+            <?php  } else { ?>
                 <?php putRevSlider("full_fr") ?>
-            <? } ?>
+            <?php  } ?>
 
         </div></div>
         <!-- .Slider -->

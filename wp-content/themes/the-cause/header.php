@@ -23,15 +23,15 @@
 <?php get_template_part('tbFonts'); ?>
 <link rel="stylesheet" href="<?php echo TEMPLATE_DIRECTORY; ?>/styles/grid960.css" type="text/css" media="screen"/>
 
-<? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+<?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 
     <link rel="stylesheet" href="<?php echo TEMPLATE_DIRECTORY; ?>/style_foundation.css" type="text/css" media="screen"/>
 
-<? } else {?>
+<?php  } else {?>
 
     <link rel="stylesheet" href="<?php bloginfo('stylesheet_url'); ?>" type="text/css" media="screen" />
 
-<? } ?>
+<?php  } ?>
 
 <?php wp_head(); ?>
 
@@ -40,20 +40,20 @@
 <body <?php body_class(); ?>>
 
 <!-- HEADER -->
-<? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+<?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 <div id="header" class="width1000">
-<? } else { ?>
+<?php  } else { ?>
 <div id="header" class="width100" <?php tb_write_bckg(); ?>>
-<? } ?>
+<?php  } ?>
     <div class="width1000">
         
         <div id="logo"><h1><a href="<?php echo home_url(); ?>" title="<?php bloginfo('name'); ?>">
         
-            <? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+            <?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
             <img src="<?php echo TEMPLATE_DIRECTORY; ?>/images_foundation/foundation header.png" alt="<?php bloginfo('name'); ?>">
-            <? } else { ?>
+            <?php  } else { ?>
             <img src="<?php echo tb_get_logo(); ?>" alt="<?php bloginfo('name'); ?>">
-            <? } ?>
+            <?php  } ?>
             
         </a></h1></div>
 		
@@ -64,12 +64,12 @@
 <div class="clear"></div>
 
 <!-- CONTENT -->
-<? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+<?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 <div id="contentHolder" class="width1000">
     <div id="separator"></div>
-<? } else { ?>
+<?php  } else { ?>
 <div id="contentHolder" class="width100">
-<? } ?>   
+<?php  } ?>   
     
 	<!-- Navigation -->
     <div id="navigationBckg" class="<?php tb_write_bckg('navigation'); ?> width100">
@@ -93,7 +93,7 @@
 	    ?>
         </div>
                 
-                <? require_once('lang_switch.php'); ?>
+                <?php  require_once('lang_switch.php'); ?>
 		
         </div>
 		

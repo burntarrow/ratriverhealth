@@ -2,9 +2,9 @@
 
 class TB_Newsletter extends WP_Widget {
 	
-	function TB_Newsletter() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_newsletter', 'description' => __( 'Adds a newsletter sign-up form.', 'the-cause') );
-		$this->WP_Widget('TB_Newsletter', __('TB Newsletter', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Newsletter', __('TB Newsletter', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -68,11 +68,10 @@ class TB_Newsletter extends WP_Widget {
 
 function tb_register_newsletter() {
 
-	register_widget('TB_Newsletter');
-	
-	do_action('widgets_init');
+	register_widget(TB_Newsletter::class);
+
 }
 
-add_action('init', 'tb_register_newsletter', 1);
+add_action('widgets_init', 'tb_register_newsletter', 1);
 
 ?>

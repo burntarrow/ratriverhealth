@@ -3,9 +3,9 @@
 // Latest Tweets
 class TB_Twitter_Activity extends WP_Widget {
 	
-	function TB_Twitter_Activity() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_twitter_activity', 'description' => __( 'Twitter Activity', 'the-cause') );		
-		$this->WP_Widget('TB_Twitter_Activity', __('TB Twitter Activity', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Twitter_Activity', __('TB Twitter Activity', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -69,11 +69,10 @@ class TB_Twitter_Activity extends WP_Widget {
 
 function tb_register_twitter_widget() {
 	
-	register_widget('TB_Twitter_Activity');
-	
-	do_action('widgets_init');
+	register_widget(TB_Twitter_Activity::class);
+
 }
 
-add_action('init', 'tb_register_twitter_widget', 1);
+add_action('widgets_init', 'tb_register_twitter_widget', 1);
 
 ?>

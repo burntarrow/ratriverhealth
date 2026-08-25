@@ -3,9 +3,9 @@
 // Latest posts with thumbs
 class TB_Latest_Posts extends WP_Widget {
 	
-	function TB_Latest_Posts() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_latest_posts', 'description' => __( 'Latest posts with thumbnails', 'the-cause') );		
-		$this->WP_Widget('TB_Latest_Posts', __('TB Latest Posts', 'the-cause'), $widget_ops);	
+		parent::__construct('TB_Latest_Posts', __('TB Latest Posts', 'the-cause'), $widget_ops);	
 	}
 	
 	function widget( $args, $instance ) {
@@ -94,11 +94,10 @@ class TB_Latest_Posts extends WP_Widget {
 
 function tb_register_latest_posts() {
 	
-	register_widget('TB_Latest_Posts');
-	
-	do_action('widgets_init');
+	register_widget(TB_Latest_Posts::class);
+
 }
 
-add_action('init', 'tb_register_latest_posts', 1);
+add_action('widgets_init', 'tb_register_latest_posts', 1);
 
 ?>

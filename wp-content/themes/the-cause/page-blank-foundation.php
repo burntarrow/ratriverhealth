@@ -54,13 +54,13 @@ get_header('parallax');
 	
 	<div id="inner">
             
-        <? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+        <?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 
         <?php while ( have_posts() ) : the_post(); ?>
             <?php the_content(); ?>
         <?php endwhile; ?>
         
-        <? } else { ?>
+        <?php  } else { ?>
 
 	<?php if ( is_active_sidebar(2) ) { ?>
 	<div id="homeHighlights">
@@ -92,7 +92,7 @@ get_header('parallax');
 	
 	?>
         
-        <? } ?>
+        <?php  } ?>
 
 	
 	</div>

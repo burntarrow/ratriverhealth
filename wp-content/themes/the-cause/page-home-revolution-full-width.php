@@ -59,7 +59,7 @@ get_header('parallax-full');
 	</div>
 	<?php } ?>
 
-        <? if (strlen($_SERVER['REQUEST_URI']) == 1 || $_SERVER['REQUEST_URI'] == "/home/" || $_SERVER['REQUEST_URI'] == "/accueil/") { ?>
+        <?php  if (strlen($_SERVER['REQUEST_URI']) == 1 || $_SERVER['REQUEST_URI'] == "/home/" || $_SERVER['REQUEST_URI'] == "/accueil/") { ?>
         
         <?php if (have_posts()) : ?>
         <?php while ( have_posts() ) : the_post(); ?>
@@ -69,7 +69,7 @@ get_header('parallax-full');
         <?php endwhile; ?>
         <?php endif; ?>
         
-        <?}?>
+        <?php }?>
 	
 	<?php
 	$area1 = get_option('tb_home_area_1', 'latest');
