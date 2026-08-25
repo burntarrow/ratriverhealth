@@ -1,10 +1,10 @@
 	<div>
             
-        <? if (pll_current_language() == 'en') { ?>
+        <?php  if (pll_current_language() == 'en') { ?>
             <h3>Latest News</h3>
-        <? } else { ?>
+        <?php  } else { ?>
             <h3>Nouvelles r&eacute;centes</h3>
-        <? } ?>
+        <?php  } ?>
 	
 	<?php
 	$args = array();
@@ -71,7 +71,7 @@
 				<br />		
 			<?php the_excerpt(); ?>
                         
-                        <p class="readmore"><a href="<?php echo $postPermalink; ?>" title="<?php echo $postTitle; ?>"><img src="<?php echo TEMPLATE_DIRECTORY; ?>/images/read_more_button<? if (pll_current_language() == 'fr') { echo "_fr"; } ?>.png" alt="Read More"></a></p>
+                        <p class="readmore"><a href="<?php echo $postPermalink; ?>" title="<?php echo $postTitle; ?>"><img src="<?php echo TEMPLATE_DIRECTORY; ?>/images/read_more_button<?php  if (pll_current_language() == 'fr') { echo "_fr"; } ?>.png" alt="Read More"></a></p>
                         
 			</div>
 			

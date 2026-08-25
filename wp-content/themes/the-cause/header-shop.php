@@ -70,7 +70,7 @@
 	    ?>
         </div>
                 
-                <? require_once('lang_switch.php'); ?>
+                <?php  require_once('lang_switch.php'); ?>
 		
         </div>
 		

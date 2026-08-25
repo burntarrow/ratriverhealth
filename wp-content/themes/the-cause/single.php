@@ -1,4 +1,4 @@
-<? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+<?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 
 
 
@@ -77,7 +77,7 @@ get_header('parallax');
 get_footer();
 ?>
 
-<? } else { ?>
+<?php  } else { ?>
 
 <?php
 
@@ -167,4 +167,4 @@ $strings = array(
 get_footer();
 ?>
 
-<? } ?>
+<?php  } ?>

@@ -17,11 +17,11 @@
 <!-- .CONTENT -->
 
 <!-- FOOTER -->
-<? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+<?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 <div id="footer" class="width1000">
-<? } else { ?>
+<?php  } else { ?>
 <div id="footer" class="width100">
-<? } ?>
+<?php  } ?>
 	<div class="width1000">
         
         <div class="container_12">
@@ -49,11 +49,11 @@
 <!-- .FOOTER -->
 
 <!-- BOTTOM LINE -->
-<? if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
+<?php  if (substr($_SERVER['REQUEST_URI'], 0, 12) == "/foundation/") { ?>
 <div id="bottomLine" class="width1000">
-<? } else { ?>
+<?php  } else { ?>
 <div id="bottomLine" class="width100">
-<? } ?>
+<?php  } ?>
 	<div class="width1000">
         <div id="bottomNav">
 		<?php
