@@ -1,0 +1,133 @@
+name: Refresh public WordPress packages for PHP 8.4
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - compat/php-8.4
+    paths:
+      - .github/workflows/php-84-refresh-public-packages.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    name: Update packages available from WordPress.org
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start from the newest compatibility-branch commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin compat/php-8.4
+          git reset --hard origin/compat/php-8.4
+
+      - name: Refresh matching public plugins and themes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          report=PHP84-PACKAGE-UPDATES.md
+          {
+            echo '# WordPress.org package refresh'
+            echo
+            echo 'Only packages with an exact directory-slug match and a valid archive from WordPress.org were replaced. Custom and commercial packages were preserved.'
+            echo
+            echo '| Type | Slug | Previous version | Updated version |'
+            echo '|---|---|---:|---:|'
+          } > "$report"
+
+          header_value() {
+            local file=$1 key=$2
+            awk -F: -v wanted="$key" '
+              BEGIN { IGNORECASE=1 }
+              $1 ~ "^[[:space:]]*" wanted "[[:space:]]*$" {
+                sub(/^[^:]*:[[:space:]]*/, "", $0)
+                gsub(/[[:space:]]*\\*\\/[[:space:]]*$/, "", $0)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+                print $0
+                exit
+              }
+            ' "$file"
+          }
+
+          replace_package() {
+            local type=$1 dir=$2 url=$3 marker=$4
+            local slug old_version archive extract top new_dir new_marker new_version
+            slug=$(basename "$dir")
+            old_version=$(header_value "$marker" 'Version')
+            archive="$tmp/${type}-${slug}.zip"
+            extract="$tmp/${type}-${slug}"
+            if ! curl -fsSL --retry 2 --retry-delay 1 "$url" -o "$archive"; then
+              return 0
+            fi
+            rm -rf "$extract"
+            mkdir -p "$extract"
+            if ! unzip -q "$archive" -d "$extract"; then
+              return 0
+            fi
+            top=$(find "$extract" -mindepth 1 -maxdepth 1 -type d | head -1)
+            [[ -n "${top:-}" ]] || return 0
+            if [[ "$type" == plugin ]]; then
+              new_marker=$(grep -RIl --include='*.php' -m1 '^[[:space:]]*\**[[:space:]]*Plugin Name[[:space:]]*:' "$top" 2>/dev/null | head -1 || true)
+            else
+              new_marker="$top/style.css"
+            fi
+            [[ -f "${new_marker:-}" ]] || return 0
+            new_version=$(header_value "$new_marker" 'Version')
+            new_dir="${dir}.php84-new"
+            rm -rf "$new_dir"
+            cp -a "$top" "$new_dir"
+            rm -rf "$dir"
+            mv "$new_dir" "$dir"
+            printf '| %s | `%s` | `%s` | `%s` |\n' "$type" "$slug" "${old_version:-unknown}" "${new_version:-unknown}" >> "$report"
+          }
+
+          if [[ -d wp-content/plugins ]]; then
+            for dir in wp-content/plugins/*; do
+              [[ -d "$dir" ]] || continue
+              slug=$(basename "$dir")
+              marker=$(grep -RIl --include='*.php' -m1 '^[[:space:]]*\**[[:space:]]*Plugin Name[[:space:]]*:' "$dir" 2>/dev/null | head -1 || true)
+              [[ -f "${marker:-}" ]] || continue
+              replace_package plugin "$dir" "https://downloads.wordpress.org/plugin/${slug}.latest-stable.zip" "$marker"
+            done
+          fi
+
+          if [[ -d wp-content/themes ]]; then
+            for dir in wp-content/themes/*; do
+              [[ -d "$dir" ]] || continue
+              slug=$(basename "$dir")
+              marker="$dir/style.css"
+              [[ -f "$marker" ]] || continue
+              replace_package theme "$dir" "https://downloads.wordpress.org/theme/${slug}.latest-stable.zip" "$marker"
+            done
+          fi
+
+      - name: Commit package updates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No matching WordPress.org packages required replacement.'
+            exit 0
+          fi
+          git commit -m 'Refresh public WordPress packages for PHP 8.4'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:compat/php-8.4; then
+              exit 0
+            fi
+            git pull --rebase origin compat/php-8.4
+            sleep $((attempt * 3))
+          done
+          echo 'Unable to push package refresh after three attempts.' >&2
+          exit 1
