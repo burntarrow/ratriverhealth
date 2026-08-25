@@ -208,7 +208,7 @@ function tbTextArea($optionID, $optionName, $optionStd, $optionDesc) {
 }
 
 // SELECT
-function tbOptionSelect($optionID, $optionName, $optionDesc, $optionSubType, $optionDir = "", $optionValue, $optionStd) {
+function tbOptionSelect($optionID, $optionName, $optionDesc, $optionSubType, $optionDir, $optionValue, $optionStd) {
 	?>
     
     <table width="80%" border="0" cellpadding="4">
