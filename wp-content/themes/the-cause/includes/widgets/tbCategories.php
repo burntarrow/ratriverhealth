@@ -3,9 +3,9 @@
 // Category: simple widget
 class TB_Categories extends WP_Widget {
 	
-	function TB_Categories() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_categories', 'description' => __( 'Simple widget: shows categories', 'the-cause') );		
-		$this->WP_Widget('TB_Categories', __('TB Categories', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Categories', __('TB Categories', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -74,11 +74,10 @@ class TB_Categories extends WP_Widget {
 
 function tb_register_categories() {
 	
-	register_widget('TB_Categories');
-	
-	do_action('widgets_init');
+	register_widget(TB_Categories::class);
+
 }
 
-add_action('init', 'tb_register_categories', 1);
+add_action('widgets_init', 'tb_register_categories', 1);
 
 ?>

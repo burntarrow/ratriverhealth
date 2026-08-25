@@ -3,9 +3,9 @@
 // About Us: data provided through theme options
 class TB_About_Us extends WP_Widget {
 	
-	function TB_About_Us() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_about_us', 'description' => __( 'All about campaign and your team', 'the-cause') );		
-		$this->WP_Widget('TB_About_Us', __('TB About Us', 'the-cause'), $widget_ops);
+		parent::__construct('TB_About_Us', __('TB About Us', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -64,11 +64,10 @@ class TB_About_Us extends WP_Widget {
 
 function tb_register_about_us() {
 	
-	register_widget('TB_About_Us');
-	
-	do_action('widgets_init');
+	register_widget(TB_About_Us::class);
+
 }
 
-add_action('init', 'tb_register_about_us', 1);
+add_action('widgets_init', 'tb_register_about_us', 1);
 
 ?>

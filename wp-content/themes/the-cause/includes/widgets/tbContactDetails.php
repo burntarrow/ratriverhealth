@@ -3,9 +3,9 @@
 // Contact details: data provided through theme options
 class TB_Contact_Details extends WP_Widget {
 	
-	function TB_Contact_Details() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_contact_details', 'description' => __( 'Contact details', 'the-cause') );		
-		$this->WP_Widget('TB_Contact_Details', __('TB Contact Details', 'the-cause'), $widget_ops);
+		parent::__construct('TB_Contact_Details', __('TB Contact Details', 'the-cause'), $widget_ops);
 	
 	}
 	
@@ -82,11 +82,10 @@ class TB_Contact_Details extends WP_Widget {
 
 function tb_register_contact_details() {
 	
-	register_widget('TB_Contact_Details');
-	
-	do_action('widgets_init');
+	register_widget(TB_Contact_Details::class);
+
 }
 
-add_action('init', 'tb_register_contact_details', 1);
+add_action('widgets_init', 'tb_register_contact_details', 1);
 
 ?>

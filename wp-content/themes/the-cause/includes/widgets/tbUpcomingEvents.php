@@ -3,9 +3,9 @@
 // Latest posts with thumbs
 class TB_Upcoming_Events extends WP_Widget {
 	
-	function TB_Upcoming_Events() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'TB_Upcoming_Events', 'description' => __( 'Upcoming events', 'the-cause') );		
-		$this->WP_Widget('TB_Upcoming_Events', __('TB Upcoming Events', 'the-cause'), $widget_ops);	
+		parent::__construct('TB_Upcoming_Events', __('TB Upcoming Events', 'the-cause'), $widget_ops);	
 	}
 	
 	function widget( $args, $instance ) {
@@ -136,11 +136,10 @@ class TB_Upcoming_Events extends WP_Widget {
 
 function tb_register_upcoming_events() {
 	
-	register_widget('TB_Upcoming_Events');
-	
-	do_action('widgets_init');
+	register_widget(TB_Upcoming_Events::class);
+
 }
 
-add_action('init', 'tb_register_upcoming_events', 1);
+add_action('widgets_init', 'tb_register_upcoming_events', 1);
 
 ?>

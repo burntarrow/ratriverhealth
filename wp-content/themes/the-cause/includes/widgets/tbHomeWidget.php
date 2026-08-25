@@ -3,9 +3,9 @@
 // Home page widget
 class TB_Home_Page_Widget extends WP_Widget {
 	
-	function TB_Home_Page_Widget() {
+	public function __construct() {
 		$widget_ops = array('classname' => 'tb_home_page_widget', 'description' => __( 'Show higlights of your work/services/campaign with this widget', 'the-cause') );		
-		$this->WP_Widget('TB_Home_Page_Widget', __('TB Home Page Widget', 'the-cause'), $widget_ops);	
+		parent::__construct('TB_Home_Page_Widget', __('TB Home Page Widget', 'the-cause'), $widget_ops);	
 	}
 	
 	function widget( $args, $instance ) {
@@ -169,11 +169,10 @@ class TB_Home_Page_Widget extends WP_Widget {
 
 function tb_register_home_page_widget() {
 	
-	register_widget('TB_Home_Page_Widget');
-	
-	do_action('widgets_init');
+	register_widget(TB_Home_Page_Widget::class);
+
 }
 
-add_action('init', 'tb_register_home_page_widget', 1);
+add_action('widgets_init', 'tb_register_home_page_widget', 1);
 
 ?>
