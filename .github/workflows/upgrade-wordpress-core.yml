@@ -1,0 +1,47 @@
+name: Upgrade WordPress core
+
+on:
+  push:
+    branches:
+      - php-8.4-compat
+    paths:
+      - .github/workflows/upgrade-wordpress-core.yml
+      - tools/update-wordpress-core.sh
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out compatibility branch
+        uses: actions/checkout@v5
+        with:
+          ref: php-8.4-compat
+          fetch-depth: 1
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Replace WordPress core with 7.1
+        shell: bash
+        run: bash tools/update-wordpress-core.sh 7.1
+
+      - name: Commit upgraded core
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'WordPress core is already current.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Upgrade WordPress core to 7.1 for PHP 8.4'
+          git push origin HEAD:php-8.4-compat
